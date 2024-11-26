@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import Model
+import numpy as np
 
 
 def conv_bn(x, filters):

@@ -4,6 +4,8 @@ import os
 import pandas as pd
 import cv2
 import random
+import tqdm
+import json
 
 def read_img(dir_image, img_size=(256, 256)):
     path_img = dir_image.decode()
@@ -110,18 +112,105 @@ def flip_horizontal(img, mask):
     mask = np.expand_dims(mask,axis=-1)
     return img, mask
 
+
+def get_points_in_radius(points_x, points_y, points_z, radius=10):
+    seleceted_x = list()
+    seleceted_y = list()
+    seleceted_z = list()
+
+    min_point_x = - int(radius/2)
+    min_point_y = - int(radius/2)
+    
+    max_point_x = int(radius/2)
+    max_point_y = int(radius/2)
+    
+    new_array = np.array([points_x, points_y, points_z])
+    list_points = list(np.transpose(new_array))
+    for point in list_points:
+         if (min_point_x < point[0] < max_point_x) and (min_point_y < point[1] < max_point_y):
+            seleceted_x.append(point[0])
+            seleceted_y.append(point[1])
+            seleceted_z.append(point[2])
+
+    return seleceted_x, seleceted_y, seleceted_z
+        
+
+def extend_list(original_list, num_points):
+    # Make a copy of the original list to avoid modifying it directly
+    extended_list = original_list[:]
+    # Keep adding random elements until the threshold is reached
+    while len(extended_list) < num_points:
+        extended_list.append(random.choice(original_list))
+    
+    return extended_list
+
+def get_cloud_points_json(path_file_json, max_num_points=1024, radius=25):
+
+    f = open (path_file_json, "r")
+    data = json.loads(f.read())
+    f.close()
+
+    px = data.get('points_x')
+    py = data.get('points_y')
+    pz = data.get('points_z')
+    points_x, points_y, points_z = get_points_in_radius(px, py, pz, radius=radius)
+    new_array = np.array([points_x, points_y, points_z])
+    reshaeped = np.transpose(new_array).tolist()
+
+    if len(points_x) < max_num_points:
+        seleceted = extend_list(reshaeped, max_num_points)
+
+    else:
+        seleceted = random.sample(reshaeped, max_num_points)
+
+    seleceted_x = [x[0] for x in seleceted]
+    seleceted_y = [x[1] for x in seleceted]
+    seleceted_z = [x[2] for x in seleceted]
+
+    return seleceted_x, seleceted_y, seleceted_z
+
+
+# Dict annotations
+def build_list_dict(df_annotations, list_data_points, path_annotations, file_format, 
+                    selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above'],
+                    selection_radius=30, max_num_points=2048):
+    
+    dict_data = {}
+    mask = df_annotations['Description'].isin(list_data_points)
+    new_df = df_annotations[mask]
+
+    temp_dict_variables = {x:None for x in selected_variables}
+    list_names = new_df['Description'].tolist()
+    
+    for variable_name in selected_variables:
+        temp_dict_variables[variable_name] = new_df[variable_name].tolist()
+
+    for idx, data_name in enumerate(tqdm.tqdm(list_names, desc='Buidling dictionary')):
+        
+        path_cloud_point_data = os.path.join(path_annotations, str(data_name) + file_format)
+        if os.path.isfile(path_cloud_point_data):
+            try: 
+                points_x, points_y, points_z = get_cloud_points_json(path_cloud_point_data, max_num_points=max_num_points, 
+                                                                        radius=selection_radius)    
+                dict_data_point = {'id_name': list_names[idx],
+                                  'path_file_point_cloud': path_cloud_point_data,
+                                  'points_x': points_x, 
+                                  'points_y': points_y, 
+                                  'points_z': points_z}
+
+                for variable_name in selected_variables:
+                    dict_data_point[variable_name] = temp_dict_variables[variable_name][idx]
+                
+                dict_data[data_name] = dict_data_point
+            except:
+                print(f'{path_cloud_point_data} broken')
+            
+    return dict_data
+
+
 # TF dataset cloud-points
-def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, num_points=2048):
-    img_size = img_size
-
-    # def tf_parse(x, y):
-    #     def _parse(x):
-    #         x = read_asl(x)
-    #         return x
-
-    #     x = tf.numpy_function(_parse, [x], [tf.float64])
-    #     #x.set_shape([img_size, img_size, 3])
-    #     return x, y
+def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, num_points=1024, 
+                           selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above']):
     
     def configure_for_performance(dataset, batch_size):
         dataset = dataset.shuffle(buffer_size=10)
@@ -130,35 +219,29 @@ def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, 
         return dataset
 
     list_files = list(annotations_dict.keys())
-    path_imgs = list()
-    images_class = list()
-    data_points = list()
-
-
+    path_files_data = list()
+    list_all_variables = list()
+    data_cloud_points = list()
     if training_mode:
         random.shuffle(list_files)
     
-    for img_id in list_files:
-        path_imgs.append(annotations_dict[img_id]['path_raster_file'])
-        #path_imgs.append(annotations_dict[img_id]['path_ir_img'])
-        #biomass_above = annotations_dict[img_id]['biomass_above']
-        #basal_area = annotations_dict[img_id]['basal_area']
-        volume = annotations_dict[img_id]['volume']
-        #dgv = annotations_dict[img_id]['dgv']
-        hgv = annotations_dict[img_id]['hgv']
-        points_x = annotations_dict[img_id]['points_x']
-        points_y = annotations_dict[img_id]['points_y']
-        points_z = annotations_dict[img_id]['points_z']
-        #data_points = np.transpose(np.array[points_x, points_y, points_z])
-        data_points.append(tf.transpose([points_x, points_y, points_z]))
-        #images_class.append([biomass_above, basal_area, volume, dgv, hgv])
-        images_class.append([volume, hgv])
+    for data_id in list_files:
+        path_file_data = annotations_dict.get(data_id).get('path_file_point_cloud')
+        path_files_data.append(path_file_data)
+        points_x = annotations_dict.get(data_id).get('points_x')
+        points_y = annotations_dict.get(data_id).get('points_y')
+        points_z = annotations_dict.get(data_id).get('points_z')
+        data_cloud_points.append(tf.transpose([points_x, points_y, points_z]))
+        data_point_vars = list()
+        for j, variable_name in enumerate(selected_variables):
+            data_point_vars.append(annotations_dict.get(data_id).get(variable_name))
+        list_all_variables.append(data_point_vars)
 
-    labels = images_class
-    dataset = tf.data.Dataset.from_tensor_slices((data_points, labels))
+    
+    dataset = tf.data.Dataset.from_tensor_slices((data_cloud_points, list_all_variables))
 
     if analyze_dataset:
-        filenames_ds = tf.data.Dataset.from_tensor_slices(path_imgs)
+        filenames_ds = tf.data.Dataset.from_tensor_slices(path_files_data)
         dataset = tf.data.Dataset.zip(dataset, filenames_ds)
 
     if training_mode:
@@ -167,6 +250,6 @@ def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, 
         dataset = dataset.batch(batch_size,  drop_remainder=True)
 
     dataset = dataset.prefetch(1)
-    print(f'TF dataset with {len(path_imgs)} elements')
+    print(f'TF dataset with {len(path_files_data)} elements')
 
     return dataset

@@ -22,13 +22,14 @@ from absl import app, flags
 from absl.flags import FLAGS
 from tensorflow.python.client import device_lib
 from datetime import datetime
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, CSVLogger, TensorBoard
 
 
+def custome_train(model, train_ds, learning_rate, max_epoxhs, val_ds, new_results_id, results_directory):
 
-def custome_train(model, train_ds, max_epoxhs, val_ds, new_results_id, results_directory):
-    checkpoint_filepath = os.path.join(results_directory, new_results_id + "_model_smi_supervised.h5")
-    training_history = model.fit(train_ds, epochs=max_epoxhs, validation_data=val_ds)
-    #model.save(checkpoint_filepath)
+    checkpoint_filepath = os.path.join(results_directory, new_results_id + "_model_flly_supervised.h5")
+    training_history = model.fit(train_ds, epochs=max_epoxhs, validation_data=val_ds) 
+    model.save_weights(checkpoint_filepath)
     print('Model saved at: ', checkpoint_filepath) 
     return training_history
 
@@ -80,11 +81,11 @@ def main(_argv):
     print('val cases:', len(val_points))
     print('test cases:', len(test_points))
 
-    dict_train = dl.build_list_dict(df_annotations, train_points[:100], path_dataset, 
+    dict_train = dl.build_list_dict(df_annotations, train_points, path_dataset, 
                                   file_format=file_format, selection_radius=selection_radius, 
                                   max_num_points=num_points, selected_variables=list_variables)
 
-    dict_val = dl.build_list_dict(df_annotations, val_points[:100], path_dataset, 
+    dict_val = dl.build_list_dict(df_annotations, val_points, path_dataset, 
                                   file_format=file_format, selection_radius=selection_radius, 
                                   max_num_points=num_points, selected_variables=list_variables)
 
@@ -136,7 +137,7 @@ def main(_argv):
     with open(path_yaml_file, 'w') as file:
         yaml.dump(patermets_traning, file)
 
-    train_history = custome_train(model, train_ds, results_directory=results_directory, 
+    train_history = custome_train(model, train_ds, lr, results_directory=results_directory, 
                                   new_results_id=new_results_id, max_epoxhs=epochs, val_ds=val_ds)
    
     try:
@@ -158,13 +159,19 @@ def main(_argv):
     except:
         print('Not possible to print history')
     
-    # df_hist = pd.DataFrame(list(zip(train_loss_hist, val_loss_hist, train_dsc_hist, val_dsc_hist)),
-    #               columns =['train loss', 'val loss', 'train DSC', 'val DSC'])
-    # training_history_path = os.path.join(results_directory, new_results_id + "_training_history.csv")
-    # df_hist.to_csv(training_history_path, index=False)
+    vals_mae_train = model.history.history.get('mean_absolute_error')
+    vals_mae_val = model.history.history.get('val_mean_absolute_error')
+
+    vals_loss_train = model.history.history.get('loss')
+    vals_loss_val = model.history.history.get('val_loss')
+
+    df_hist = pd.DataFrame(list(zip(vals_mae_train, vals_mae_val, vals_loss_train, vals_loss_val)),
+                  columns =['train MAE', 'val MAE', 'train loss', 'val loss'])
+    training_history_path = os.path.join(results_directory, new_results_id + "_training_history.csv")
+    df_hist.to_csv(training_history_path, index=False)
     
     # run the test 
-    dict_test = dl.build_list_dict(df_annotations, test_points[:10], path_dataset, 
+    dict_test = dl.build_list_dict(df_annotations, test_points, path_dataset, 
                                   file_format=file_format, selection_radius=selection_radius, 
                                   max_num_points=num_points, selected_variables=list_variables)
 

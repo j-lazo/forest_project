@@ -46,7 +46,7 @@ def tnet(inputs, num_features):
     # Apply affine transformation to input features
     return tf.keras.layers.Dot(axes=(2, 1))([inputs, feat_T])
 
-def build_pointnet(num_points=2048):
+def build_pointnet(num_outputs, num_points=1024):
 
     inputs = tf.keras.Input(shape=(num_points, 3))
 
@@ -65,6 +65,6 @@ def build_pointnet(num_points=2048):
 
     x = tf.keras.layers.Flatten()(x)
         #output_layer = tf.keras.layers.Dense(1, activation='tanh')(x)
-    outputs = tf.keras.layers.Dense(2, kernel_initializer='normal')(x)
+    outputs = tf.keras.layers.Dense(num_outputs, kernel_initializer='normal')(x)
     return Model(inputs=inputs, outputs=outputs, name="pointnet")
      

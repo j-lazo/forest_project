@@ -23,9 +23,10 @@ from absl.flags import FLAGS
 from tensorflow.python.client import device_lib
 from datetime import datetime
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, CSVLogger, TensorBoard
+from utils import metrics as metrics
 
 
-def custome_train(model, train_ds, learning_rate, max_epoxhs, val_ds, new_results_id, results_directory):
+def fit_model(model, train_ds, learning_rate, max_epoxhs, val_ds, new_results_id, results_directory):
 
     checkpoint_filepath = os.path.join(results_directory, new_results_id + "_model_flly_supervised.h5")
     training_history = model.fit(train_ds, epochs=max_epoxhs, validation_data=val_ds) 
@@ -33,6 +34,159 @@ def custome_train(model, train_ds, learning_rate, max_epoxhs, val_ds, new_result
     print('Model saved at: ', checkpoint_filepath) 
     return training_history
 
+
+def custome_train(model, train_dataset, learning_rate, max_epoxhs, val_dataset, new_results_id, results_directory, patience=10):
+    
+    @tf.function
+    def train_step(inputs, labels):
+        list_metrics_batch = list()
+        with tf.GradientTape() as tape:
+            predictions = model(inputs, training=True)
+            train_loss = loss_fn(y_true=labels, y_pred=predictions)
+        gradients = tape.gradient(train_loss, model.trainable_variables)
+        optimizer.apply_gradients(grads_and_vars=zip(gradients, model.trainable_variables))
+        for metric in train_metrics:
+            list_metrics_batch.append(metric(labels, predictions))
+
+        return train_loss, list_metrics_batch
+
+    @tf.function
+    def valid_step(inputs, labels):
+        list_metrics_batch = list()
+        predictions = model(inputs, training=False)
+        val_loss = loss_fn(labels, predictions)
+        for metric in train_metrics:
+            list_metrics_batch.append(metric(labels, predictions))
+
+        return val_loss, list_metrics_batch
+    
+    @tf.function
+    def prediction_step(images):
+        predictions = model(images, training=False)
+        return predictions
+
+    # define loss and optimizer
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    loss_fn = tf.keras.losses.MeanSquaredError()
+
+    # train/val loss and metrics histories     
+    train_loss_hist = list()
+    val_loss_hist = list()
+
+    #train_metrics=[tf.keras.metrics.MeanSquaredError(), tf.keras.metrics.RootMeanSquaredError(), tf.keras.metrics.MeanAbsoluteError()]
+    #val_metrics=[tf.keras.metrics.MeanSquaredError(), tf.keras.metrics.RootMeanSquaredError(), tf.keras.metrics.MeanAbsoluteError()]
+
+    train_metrics = [metrics.metric_RootMeanSquaredError, metrics.metric_MeanSquaredError, metrics.metric_MeanAbsoluteError]
+    val_metrics = [metrics.metric_RootMeanSquaredError, metrics.metric_MeanSquaredError, metrics.metric_MeanAbsoluteError]
+    metrics_names = ['MSE', 'RMSE', 'MAE'] 
+
+    train_metrics_hist = [list() for _ in train_metrics]
+    val_metrics_hist = [list() for _ in val_metrics]
+
+    train_loss = tf.keras.metrics.Mean(name='train_loss')
+    valid_loss = tf.keras.metrics.Mean(name='valid_loss')
+
+    f_metrics_train = list()
+    f_metrics_val = list()
+    for j, _ in enumerate(train_metrics_hist):
+        f_metrics_train.append(tf.keras.metrics.Mean(name='train_' + metrics_names[j]))
+        f_metrics_val.append(tf.keras.metrics.Mean(name='val_' + metrics_names[j]))
+
+    patience = patience
+    wait = 0
+    best = 0
+    num_training_samples = [i for i,_ in enumerate(train_dataset)][-1] + 1
+    checkpoint_filepath = os.path.join(results_directory, new_results_id + "_model_weights_flly_supervised.h5")
+
+    # start training
+
+    for epoch in range(max_epoxhs):
+        print("\nepoch {}/{}".format(epoch+1, max_epoxhs))
+        progBar = tf.keras.utils.Progbar(num_training_samples, stateful_metrics=metrics_names)
+        step = 0
+        epoch_train_loss_list = list()
+        epoch_train_loss_val = list()
+
+        epoch_train_metrics_list = [list() for _ in range(len(train_metrics))]
+        epoch_val_metrics_list = [list() for _ in range(len(val_metrics))]
+        
+        for idX, batch_ds in enumerate(train_dataset):
+            train_images = batch_ds[0]
+            train_labels = batch_ds[1]
+            step += 1
+            train_loss_value, batch_training_metrics = train_step(train_images, train_labels)
+            epoch_train_loss_list.append(train_loss_value)
+            values_prog_bar = list()
+            for j, metric in enumerate(batch_training_metrics):
+                epoch_train_metrics_list[j].append(metric)
+                values_prog_bar.append(('train_' + metrics_names[j],  metric))
+            values_prog_bar.append(('train_loss', train_loss_value))
+            progBar.update(idX+1, values=values_prog_bar) 
+        
+        # calcualate the train loss and metrics and save them into the history list 
+        loss_epoch = train_loss(epoch_train_loss_list)
+        for j, metric_list in enumerate(epoch_train_metrics_list):
+            m = f_metrics_train[j](metric_list).numpy()
+            train_metrics_hist[j].append(m)
+
+        train_loss_hist.append(loss_epoch.numpy())
+
+        # Reset training metrics at the end of each epoch
+        train_loss.reset_states()
+        for f in f_metrics_train:
+            f.reset_states()
+                
+        if val_dataset:
+            for valid_images, valid_labels in val_dataset:
+                val_loss_value, batch_validation_metrics = valid_step(valid_images, valid_labels)
+                epoch_train_loss_val.append(val_loss_value)
+                values_prog_bar_val = list()
+                for j, metric in enumerate(batch_validation_metrics):
+                    epoch_val_metrics_list[j].append(metric)
+                    values_prog_bar_val.append(('val_' + metrics_names[j],  metric))
+                values_prog_bar_val.append(('val_loss', val_loss_value))
+            progBar.update(idX+1, values=values_prog_bar_val) 
+
+            # calcualate the val loss and metrics and save them into the history list 
+            loss_epoch_val = valid_loss(epoch_train_loss_val).numpy()
+            for j, metric_list in enumerate(epoch_val_metrics_list):
+                m = f_metrics_val[j](metric_list).numpy()
+                val_metrics_hist[j].append(m)
+
+            val_loss_hist.append(loss_epoch_val)
+
+            # Reset training metrics at the end of each epoch
+            valid_loss.reset_states()
+            for f in f_metrics_val:
+                f.reset_states()
+            
+        wait += 1
+        if epoch == 0:
+            best = loss_epoch_val
+        if loss_epoch_val < best:
+            best = loss_epoch_val
+            wait = 0
+            model.save_weights(checkpoint_filepath)
+
+        if wait >= patience:
+            print(f'Early stopping triggered at epoch {epoch}: wait time > patience')
+            model.save_weights(checkpoint_filepath)
+            break
+    
+    fina_model_name = os.path.join(results_directory, new_results_id + "_final_model_weights_flly_supervised.h5")
+    model.save_weights(fina_model_name)
+    print('Model saved at: ', checkpoint_filepath)    
+
+    dict_history = {'train_loss': train_loss_hist,
+                    'val_loss':val_loss_hist}
+    
+    for i, metric_list in enumerate(train_metrics_hist):
+        dict_history['train_' + metrics_names[i]] = metric_list
+
+    for i, metric_list in enumerate(val_metrics_hist):
+        dict_history['val_' + metrics_names[i]] = metric_list
+
+    return dict_history
 
 def main(_argv):
     tf.keras.backend.clear_session()
@@ -137,21 +291,27 @@ def main(_argv):
     with open(path_yaml_file, 'w') as file:
         yaml.dump(patermets_traning, file)
 
-    train_history = custome_train(model, train_ds, lr, results_directory=results_directory, 
-                                  new_results_id=new_results_id, max_epoxhs=epochs, val_ds=val_ds)
-   
+    train_history_dict = custome_train(model, train_ds, lr, results_directory=results_directory, 
+                                  new_results_id=new_results_id, max_epoxhs=epochs, val_dataset=val_ds)
+    
+
     try:
         path_history_plot = os.path.join(results_directory, new_results_id + "_training_history.jpg")
         plt.figure()
-        plt.subplot(121)
-        plt.title('MAE')
-        plt.plot(model.history.history.get('mean_absolute_error'),  '-o', color='blue', label='train')
-        plt.plot(model.history.history.get('val_mean_absolute_error'),  '-o', color='orange', label='val')
-        plt.subplot(122)
-        plt.title('Loss')
-        plt.plot(model.history.history.get('loss'),  '-o', color='blue', label='train')
-        plt.plot(model.history.history.get('val_loss'), '-o', color='orange', label='val')
-        plt.legend(loc='best')
+
+        name_metrics = train_history_dict.keys()
+        name_metrics = [s.replace('train_', '').replace('val_', '') for s in name_metrics]
+
+        unique_metric_names = list(np.unique(name_metrics))
+
+        plt.figure(figsize=(11,13))
+        for j, metric_name in enumerate(unique_metric_names):
+            plt.subplot(1, len(unique_metric_names), j+1)
+            plt.title(metric_name)
+            plt.plot(train_history_dict.get('train_' + metric_name), '-o', color='blue', label='train')
+            plt.plot(train_history_dict.get('val_' + metric_name),  '-o', color='orange', label='val')
+            plt.legend(loc='best')
+
         plt.savefig(path_history_plot)
         plt.close()
         print('History plot saaved at: ', path_history_plot)
@@ -159,14 +319,9 @@ def main(_argv):
     except:
         print('Not possible to print history')
     
-    vals_mae_train = model.history.history.get('mean_absolute_error')
-    vals_mae_val = model.history.history.get('val_mean_absolute_error')
 
-    vals_loss_train = model.history.history.get('loss')
-    vals_loss_val = model.history.history.get('val_loss')
+    df_hist = pd.DataFrame.from_dict(train_history_dict)
 
-    df_hist = pd.DataFrame(list(zip(vals_mae_train, vals_mae_val, vals_loss_train, vals_loss_val)),
-                  columns =['train MAE', 'val MAE', 'train loss', 'val loss'])
     training_history_path = os.path.join(results_directory, new_results_id + "_training_history.csv")
     df_hist.to_csv(training_history_path, index=False)
     

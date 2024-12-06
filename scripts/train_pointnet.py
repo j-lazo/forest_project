@@ -306,7 +306,7 @@ def main(_argv):
 
         plt.figure(figsize=(11,13))
         for j, metric_name in enumerate(unique_metric_names):
-            plt.subplot(1, len(unique_metric_names), j+1)
+            plt.subplot(len(unique_metric_names), 1, j+1)
             plt.title(metric_name)
             plt.plot(train_history_dict.get('train_' + metric_name), '-o', color='blue', label='train')
             plt.plot(train_history_dict.get('val_' + metric_name),  '-o', color='orange', label='val')

@@ -103,7 +103,6 @@ def custome_train(model, train_dataset, learning_rate, max_epoxhs, val_dataset, 
     for epoch in range(max_epoxhs):
         print("\nepoch {}/{}".format(epoch+1, max_epoxhs))
         progBar = tf.keras.utils.Progbar(num_training_samples, stateful_metrics=metrics_names)
-        step = 0
         epoch_train_loss_list = list()
         epoch_train_loss_val = list()
 
@@ -113,7 +112,6 @@ def custome_train(model, train_dataset, learning_rate, max_epoxhs, val_dataset, 
         for idX, batch_ds in enumerate(train_dataset):
             train_images = batch_ds[0]
             train_labels = batch_ds[1]
-            step += 1
             train_loss_value, batch_training_metrics = train_step(train_images, train_labels)
             epoch_train_loss_list.append(train_loss_value)
             values_prog_bar = list()
@@ -155,7 +153,7 @@ def custome_train(model, train_dataset, learning_rate, max_epoxhs, val_dataset, 
 
             val_loss_hist.append(loss_epoch_val)
 
-            # Reset training metrics at the end of each epoch
+            # Reset validation metrics at the end of each epoch
             valid_loss.reset_states()
             for f in f_metrics_val:
                 f.reset_states()
@@ -250,7 +248,7 @@ def main(_argv):
     metrics=[tf.keras.metrics.MeanAbsoluteError()]
 
     # Compile the model 
-    model = pointnet.build_pointnet(5, num_points=num_points)
+    model = pointnet.build_pointnet(len(list_variables), num_points=num_points)
     print('Compiling model')
     model.compile(optimizer=opt, loss=loss_fn, metrics=metrics)
 
@@ -271,7 +269,7 @@ def main(_argv):
     if not os.path.isdir(results_directory):
         os.mkdir(results_directory)
 
-    # Save Training details in YAMLß
+    # Save Training details in YAML
 
     patermets_traning = {'Model name':name_model, 
                          'Type of training': 'custome-training', 
@@ -345,7 +343,7 @@ def main(_argv):
         name_files.append(name_file)
         for j, real_val, in enumerate(real_vals_batch.tolist()[0]):
             real_vals_list[j].append(float(real_val))
-
+        
         for i, predicted_val, in enumerate(predictions.tolist()[0]):
             predictions_list[i].append(float(predicted_val))
 

@@ -170,7 +170,7 @@ def get_cloud_points_json(path_file_json, max_num_points=1024, radius=25):
     return seleceted_x, seleceted_y, seleceted_z
 
 
-# Dict annotations
+# Dict annotations cloud-points
 def build_list_dict(df_annotations, list_data_points, path_annotations, file_format, 
                     selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above'],
                     selection_radius=30, max_num_points=2048):
@@ -207,6 +207,36 @@ def build_list_dict(df_annotations, list_data_points, path_annotations, file_for
             
     return dict_data
 
+# build dictionary for raster data
+def build_list_dict_raster(df_annotations, list_data_points, path_data_files, file_format='.pkl', 
+                    selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above']):
+    
+    dict_data = {}
+    mask = df_annotations['Description'].isin(list_data_points)
+    new_df = df_annotations[mask]
+
+    temp_dict_variables = {x:None for x in selected_variables}
+    list_names = new_df['Description'].tolist()
+    
+    for variable_name in selected_variables:
+        temp_dict_variables[variable_name] = new_df[variable_name].tolist()
+
+    for idx, data_name in enumerate(tqdm.tqdm(list_names, desc='Buidling dictionary')):
+        
+        path_raster_data_file = os.path.join(path_data_files, str(data_name) + file_format)
+        if os.path.isfile(path_raster_data_file):
+            try: 
+                dict_data_point = {'id_name': list_names[idx],
+                                  'path_file': path_raster_data_file}
+
+                for variable_name in selected_variables:
+                    dict_data_point[variable_name] = temp_dict_variables[variable_name][idx]
+                
+                dict_data[data_name] = dict_data_point
+            except:
+                print(f'{path_raster_data_file} broken')
+            
+    return dict_data
 
 # TF dataset cloud-points
 def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, num_points=1024, 
@@ -239,6 +269,74 @@ def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, 
 
     
     dataset = tf.data.Dataset.from_tensor_slices((data_cloud_points, list_all_variables))
+
+    if analyze_dataset:
+        filenames_ds = tf.data.Dataset.from_tensor_slices(path_files_data)
+        dataset = tf.data.Dataset.zip(dataset, filenames_ds)
+
+    if training_mode:
+        dataset = configure_for_performance(dataset, batch_size=batch_size)
+    else:
+        dataset = dataset.batch(batch_size,  drop_remainder=True)
+
+    dataset = dataset.prefetch(1)
+    print(f'TF dataset with {len(path_files_data)} elements')
+
+    return dataset
+
+
+# TF dataset raster-pickles
+def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, radius=1, 
+                           selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above']):
+    
+    RADIUS = radius
+    def read_pickle(path):
+        path = path.decode()
+        x = np.load(path, allow_pickle=True)
+        return x
+
+    def select_sub_rectangle(x, center=4, radius=RADIUS):
+        return x[center-radius:center+radius+1, center-radius:center+radius+1, :]
+
+
+    def tf_parse(x, y):
+        def _parse(x, y):
+            x = read_pickle(x)
+            x = select_sub_rectangle(x)
+            y = np.array(y).astype(np.float64)
+            return x, y
+
+        x, y = tf.numpy_function(_parse, [x, y], [tf.float64, tf.float64])
+        x.set_shape([(RADIUS*2)+1, (RADIUS*2)+1, 60])
+        y.set_shape([len(selected_variables)])
+        return x, y
+    
+    def configure_for_performance(dataset, batch_size):
+        dataset = dataset.shuffle(buffer_size=10)
+        dataset = dataset.batch(batch_size, drop_remainder=True)        
+        dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        return dataset
+
+    list_files = list(annotations_dict.keys())
+    path_files_data = list()
+    list_all_variables = list()
+    data_cloud_points = list()
+    if training_mode:
+        random.shuffle(list_files)
+    
+    
+
+    for data_id in list_files:
+        path_file_data = annotations_dict.get(data_id).get('path_file')
+        path_files_data.append(path_file_data)
+        data_point_vars = list()
+        for j, variable_name in enumerate(selected_variables):
+            data_point_vars.append(annotations_dict.get(data_id).get(variable_name))
+        list_all_variables.append(data_point_vars)
+
+    
+    dataset = tf.data.Dataset.from_tensor_slices((path_files_data, list_all_variables))
+    dataset = dataset.map(tf_parse)
 
     if analyze_dataset:
         filenames_ds = tf.data.Dataset.from_tensor_slices(path_files_data)

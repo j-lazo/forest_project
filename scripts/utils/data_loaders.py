@@ -289,7 +289,7 @@ def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, 
 # TF dataset raster-pickles
 def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, radius=1, 
                            selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above'],
-                           data_type='pkl'):
+                           data_type='pkl', augment=False):
     
     RADIUS = radius
     def read_pickle_file(path):
@@ -310,6 +310,19 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
     def read_raster(x, y):
         def _parse(x, y):
             x = read_raster_file(x)
+            x = select_sub_rectangle(x)
+            x = x.astype(np.float64) 
+            y = np.array(y).astype(np.float64)
+            return x, y
+        
+        x, y = tf.numpy_function(_parse, [x, y], [tf.float64, tf.float64])
+        x.set_shape([(RADIUS*2)+1, (RADIUS*2)+1, 60])
+        y.set_shape([len(selected_variables)])
+        return x, y
+        
+    def read_raster_and_augment(x, y):
+        def _parse(x, y):
+            x = read_raster_file(x)
             x = augment_raster_files(x)
             x = select_sub_rectangle(x)
             x = x.astype(np.float64) 
@@ -327,7 +340,20 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
             x = select_sub_rectangle(x)
             y = np.array(y).astype(np.float64)
             return x, y
-
+        
+        x, y = tf.numpy_function(_parse, [x, y], [tf.float64, tf.float64])
+        x.set_shape([(RADIUS*2)+1, (RADIUS*2)+1, 60])
+        y.set_shape([len(selected_variables)])
+        return x, y
+    
+    def read_piclke_and_augment(x, y):
+        def _parse(x, y):
+            x = read_pickle_file(x)
+            x = augment_raster_files(x)
+            x = select_sub_rectangle(x)
+            y = np.array(y).astype(np.float64)
+            return x, y
+        
         x, y = tf.numpy_function(_parse, [x, y], [tf.float64, tf.float64])
         x.set_shape([(RADIUS*2)+1, (RADIUS*2)+1, 60])
         y.set_shape([len(selected_variables)])
@@ -357,9 +383,19 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
     
     dataset = tf.data.Dataset.from_tensor_slices((path_files_data, list_all_variables))
     if data_type == 'pkl':
-        dataset = dataset.map(read_piclke)
+        if augment:
+            num_repeats = 4
+            dataset = dataset.repeat(num_repeats)
+            dataset = dataset.map(read_piclke_and_augment)
+        else:
+            dataset = dataset.map(read_piclke)
     elif data_type == 'raster':
-        dataset = dataset.map(read_raster)
+        if augment:
+            num_repeats = 4
+            dataset = dataset.repeat(num_repeats)
+            dataset = dataset.map(read_raster_and_augment)
+        else:
+            dataset = dataset.map(read_raster)
 
     if analyze_dataset:
         filenames_ds = tf.data.Dataset.from_tensor_slices(path_files_data)

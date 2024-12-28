@@ -6,6 +6,7 @@ import cv2
 import random
 import tqdm
 import json
+import rasterio
 
 def read_img(dir_image, img_size=(256, 256)):
     path_img = dir_image.decode()
@@ -286,22 +287,43 @@ def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, 
 
 
 # TF dataset raster-pickles
-def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, radius=1, 
-                           selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above']):
+def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, radius=1, 
+                           selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above'],
+                           data_type='pkl'):
     
     RADIUS = radius
-    def read_pickle(path):
+    def read_pickle_file(path):
         path = path.decode()
         x = np.load(path, allow_pickle=True)
+        return x
+    
+    def read_raster_file(path):
+        path = path.decode()
+        raster_file = rasterio.open(path, "r") #Read the raster
+        x = raster_file.read()
+        x = np.rollaxis(x, 0, 3)
         return x
 
     def select_sub_rectangle(x, center=4, radius=RADIUS):
         return x[center-radius:center+radius+1, center-radius:center+radius+1, :]
 
-
-    def tf_parse(x, y):
+    def read_raster(x, y):
         def _parse(x, y):
-            x = read_pickle(x)
+            x = read_raster_file(x)
+            x = augment_raster_files(x)
+            x = select_sub_rectangle(x)
+            x = x.astype(np.float64) 
+            y = np.array(y).astype(np.float64)
+            return x, y
+
+        x, y = tf.numpy_function(_parse, [x, y], [tf.float64, tf.float64])
+        x.set_shape([(RADIUS*2)+1, (RADIUS*2)+1, 60])
+        y.set_shape([len(selected_variables)])
+        return x, y
+
+    def read_piclke(x, y):
+        def _parse(x, y):
+            x = read_pickle_file(x)
             x = select_sub_rectangle(x)
             y = np.array(y).astype(np.float64)
             return x, y
@@ -324,8 +346,6 @@ def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, 
     if training_mode:
         random.shuffle(list_files)
     
-    
-
     for data_id in list_files:
         path_file_data = annotations_dict.get(data_id).get('path_file')
         path_files_data.append(path_file_data)
@@ -336,7 +356,10 @@ def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, 
 
     
     dataset = tf.data.Dataset.from_tensor_slices((path_files_data, list_all_variables))
-    dataset = dataset.map(tf_parse)
+    if data_type == 'pkl':
+        dataset = dataset.map(read_piclke)
+    elif data_type == 'raster':
+        dataset = dataset.map(read_raster)
 
     if analyze_dataset:
         filenames_ds = tf.data.Dataset.from_tensor_slices(path_files_data)
@@ -351,3 +374,43 @@ def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, 
     print(f'TF dataset with {len(path_files_data)} elements')
 
     return dataset
+
+
+def augment_raster_files(array, augmentation_functions=['None', 'rotate_90', 'rotate_180', 'rotate_270', 'flip_vertical', 'flip_horizontal']):
+    choice = random.choice(augmentation_functions)
+
+    if choice == 'None':
+        new_array = array
+    elif choice == 'rotate_90':
+        new_array = rotate_arr_90(array)
+
+    elif choice == 'rotate_180':
+        new_array = rotate_arr_180(array)
+
+    elif choice == 'rotate_270':
+        new_array = rotate_arr_270(array)
+
+    elif choice == 'flip_vertical':
+        new_array = flip_arr_vertical(array)
+
+    elif choice == 'flip_horizontal':
+        new_array = flip_arr_horizontal(array)
+
+    return new_array
+
+
+def rotate_arr_90(array):
+    return np.rot90(array, axes=(0,1))
+
+def rotate_arr_180(array):
+    return np.rot90(array, k=2, axes=(0,1))
+
+def rotate_arr_270(array):
+    return np.rot90(array, k=3, axes=(0,1))
+
+def flip_arr_vertical(array):
+    return np.flip(array, axis=0)
+
+def flip_arr_horizontal(array):
+    return np.flip(array, axis=1)
+

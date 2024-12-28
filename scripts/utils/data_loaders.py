@@ -289,7 +289,7 @@ def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, 
 # TF dataset raster-pickles
 def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, radius=1, 
                            selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above'],
-                           data_type='pkl', augment=False):
+                           data_type='pkl', num_repeats=1, augment=False):
     
     RADIUS = radius
     def read_pickle_file(path):
@@ -407,7 +407,7 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
         dataset = dataset.batch(batch_size,  drop_remainder=True)
 
     dataset = dataset.prefetch(1)
-    print(f'TF dataset with {len(path_files_data)} elements')
+    print(f'TF dataset with {int(len(path_files_data*num_repeats)/batch_size)} elements and {len(path_files_data)} images')
 
     return dataset
 

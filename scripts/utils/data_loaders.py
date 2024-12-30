@@ -209,7 +209,7 @@ def build_list_dict(df_annotations, list_data_points, path_annotations, file_for
     return dict_data
 
 # build dictionary for raster data
-def build_list_dict_raster(df_annotations, list_data_points, path_data_files, file_format='.pkl', 
+def build_list_dict_raster(df_annotations, list_data_points, path_data_files, file_format='.npy', 
                     selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above']):
     
     dict_data = {}
@@ -289,7 +289,7 @@ def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, 
 # TF dataset raster-pickles
 def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, radius=1, 
                            selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above'],
-                           data_type='pkl', num_repeats=1, augment=False):
+                           data_type='npy', num_repeats=1, augment=False):
     
     RADIUS = radius
     def read_pickle_file(path):
@@ -338,6 +338,7 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
         def _parse(x, y):
             x = read_pickle_file(x)
             x = select_sub_rectangle(x)
+            x = x.astype(np.float64) 
             y = np.array(y).astype(np.float64)
             return x, y
         
@@ -351,6 +352,7 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
             x = read_pickle_file(x)
             x = augment_raster_files(x)
             x = select_sub_rectangle(x)
+            x = x.astype(np.float64) 
             y = np.array(y).astype(np.float64)
             return x, y
         
@@ -382,7 +384,7 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
 
     
     dataset = tf.data.Dataset.from_tensor_slices((path_files_data, list_all_variables))
-    if data_type == 'pkl':
+    if data_type == 'npy' or data_type == 'pkl':
         if augment:
             num_repeats = 4
             dataset = dataset.repeat(num_repeats)

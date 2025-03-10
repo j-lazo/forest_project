@@ -200,6 +200,10 @@ def main(_argv):
     selection_radius = FLAGS.radius
     file_format = FLAGS.file_format
     num_points = FLAGS.max_num_points
+    augmentation_functions = FLAGS.augmentation_functions
+
+    if augmentation_functions == ['all']:
+        augmentation_functions = ['None', 'rotate_90', 'rotate_180', 'rotate_270', 'flip_vertical', 'flip_horizontal',]
 
     list_names_gpus = list()
     devices = device_lib.list_local_devices()
@@ -283,6 +287,7 @@ def main(_argv):
                          'TF Version': version_tf,
                          'GPUs names': list_names_gpus, 
                          'dataset': os.path.split(path_dataset)[-1], 
+                         'augmentation operations': augmentation_functions,
                          }
 
     path_yaml_file = os.path.join(results_directory, 'parameters_training.yaml')
@@ -356,6 +361,8 @@ def main(_argv):
     name_predictions_file = os.path.join(results_directory, f'predictions_test_ds_{str(selection_radius)}_{str(num_points)}_.csv')
     df_preds.to_csv(name_predictions_file, index=False)
 
+    
+
     print('Experiment finished')
 
 if __name__ == '__main__':
@@ -374,6 +381,8 @@ if __name__ == '__main__':
     flags.DEFINE_integer('max_num_points', 1024, 'input impage size')
     flags.DEFINE_integer('radius', 25, 'input impage size')
     flags.DEFINE_integer('batch_size', 8, 'batch size')
+    flags.DEFINE_list('augmentation_functions', ['all'], 'agumentation functions used')
+
     #flags.DEFINE_list('num_filers', [32,64,128,256,512,1024], 'mumber of filters per layer')
 
     flags.DEFINE_string('type_training', '', 'eager_train or custom_training')

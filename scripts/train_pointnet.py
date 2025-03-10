@@ -241,8 +241,8 @@ def main(_argv):
                                   file_format=file_format, selection_radius=selection_radius, 
                                   max_num_points=num_points, selected_variables=list_variables)
 
-    train_ds = dl.tf_dataset_cloudpoints(dict_train, batch_size=batch_size, training_mode=True, selected_variables=list_variables)
-    val_ds = dl.tf_dataset_cloudpoints(dict_val, batch_size=batch_size, training_mode=True, selected_variables=list_variables)    
+    train_ds = dl.tf_dataset_cloudpoints(dict_train, batch_size=batch_size, training_mode=True, selected_variables=list_variables, augmentation=True)
+    val_ds = dl.tf_dataset_cloudpoints(dict_val, batch_size=batch_size, training_mode=True, selected_variables=list_variables, augmentation=True)    
     opt = tf.keras.optimizers.Adam(lr)
     loss_fn = tf.keras.losses.MeanSquaredError()
     metrics=[tf.keras.metrics.MeanAbsoluteError()]

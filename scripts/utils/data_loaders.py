@@ -239,9 +239,77 @@ def build_list_dict_raster(df_annotations, list_data_points, path_data_files, fi
             
     return dict_data
 
+def rotate_points(points, angle):
+    theta = np.radians(angle)
+    """
+    Rotates a list of 3D points around the Z-axis by angle theta (in radians).
+    
+    :param points: Nx3 numpy array of 3D points
+    :param theta: Rotation angle 
+    :return: Nx3 numpy array of rotated points
+    """
+    # Create the rotation matrix
+    R = np.array([
+        [np.cos(theta), -np.sin(theta), 0],
+        [np.sin(theta), np.cos(theta), 0],
+        [0, 0, 1]
+    ])
+    
+    # Apply the rotation to all points
+    return np.dot(points, R.T)
+
+
+def flip_points(points, flip_type="horizontal"):
+    """
+    Flips a list of 3D points horizontally or vertically in the XY plane.
+    
+    :param points: Nx3 numpy array of 3D points
+    :param flip_type: "horizontal" to flip across Y-axis, "vertical" to flip across X-axis
+    :return: Nx3 numpy array of flipped points
+    """
+    if flip_type == "horizontal":
+        flip_matrix = np.array([[-1, 0, 0], [0, 1, 0], [0, 0, 1]])  # Horizontal flip
+    elif flip_type == "vertical":
+        flip_matrix = np.array([[1, 0, 0], [0, -1, 0], [0, 0, 1]])  # Vertical flip
+    else:
+        raise ValueError("flip_type must be 'horizontal' or 'vertical'")
+    
+    return np.dot(points, flip_matrix.T)  # Apply transformation
+
+
+
+def augment_cloudpoints(points, augmentation_functions=['None', 'rotate_90', 'rotate_180', 
+                        'rotate_270', 'flip_vertical', 'flip_horizontal'], choice = None):
+    
+    if not choice:
+        choice = random.choice(augmentation_functions)
+        
+    if choice == 'None':
+        points = points
+
+    elif choice == 'rotate_90':
+        points = rotate_points(points, 90)
+
+    elif choice == 'rotate_180':
+        points = rotate_points(points, 180)
+
+    elif choice == 'rotate_270':
+        points = rotate_points(points, 270)
+
+    elif choice == 'flip_vertical':
+        points = flip_points(points, flip_type="vertical")
+
+    elif choice == 'flip_horizontal':
+        points = flip_points(points, flip_type="horizontal")
+
+    return points
+
+
 # TF dataset cloud-points
 def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, num_points=1024, 
-                           selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above']):
+                           selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above'], augmentation=False, 
+                           augmentation_functions=['None', 'rotate_90', 'rotate_180', 'rotate_270', 'flip_vertical', 'flip_horizontal']
+                           ):
     
     def configure_for_performance(dataset, batch_size):
         dataset = dataset.shuffle(buffer_size=10)
@@ -253,6 +321,10 @@ def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, 
     path_files_data = list()
     list_all_variables = list()
     data_cloud_points = list()
+
+    if augmentation:
+        list_files = list_files*len(augmentation_functions)
+
     if training_mode:
         random.shuffle(list_files)
     
@@ -262,12 +334,15 @@ def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, 
         points_x = annotations_dict.get(data_id).get('points_x')
         points_y = annotations_dict.get(data_id).get('points_y')
         points_z = annotations_dict.get(data_id).get('points_z')
-        data_cloud_points.append(tf.transpose([points_x, points_y, points_z]))
+        points = tf.transpose([points_x, points_y, points_z])
+        if augmentation:
+            points = augment_cloudpoints(points)
+
+        data_cloud_points.append(points)
         data_point_vars = list()
         for j, variable_name in enumerate(selected_variables):
             data_point_vars.append(annotations_dict.get(data_id).get(variable_name))
         list_all_variables.append(data_point_vars)
-
     
     dataset = tf.data.Dataset.from_tensor_slices((data_cloud_points, list_all_variables))
 

@@ -260,7 +260,8 @@ def main(_argv):
 
     train_ds = dl.tf_dataset_asl_scanns(dict_train, radius=selection_radius, training_mode=True, data_type=data_type, augment=True)
     val_ds = dl.tf_dataset_asl_scanns(dict_val, radius=selection_radius, training_mode=True, data_type=data_type, augment=True)
-    new_test_ds = dl.tf_dataset_asl_scanns(dict_test, radius=selection_radius, training_mode=False, batch_size=1, data_type=data_type, augment=False)
+    new_test_ds = dl.tf_dataset_asl_scanns(dict_test, radius=selection_radius, training_mode=False, batch_size=1, data_type=data_type, augment=False,
+                                           analyze_dataset=True)
 
     #train_ds = dl.tf_dataset_cloudpoints(dict_train, batch_size=batch_size, training_mode=True, selected_variables=list_variables, augmentation=True)
     #val_ds = dl.tf_dataset_cloudpoints(dict_val, batch_size=batch_size, training_mode=True, selected_variables=list_variables, augmentation=True)    
@@ -390,3 +391,8 @@ if __name__ == '__main__':
 
     flags.DEFINE_string('type_training', '', 'fit_training or custom_training')
     flags.DEFINE_string('results_dir', os.path.join(os.getcwd(), 'results'), 'directory to save the results')
+
+    try:
+        app.run(main)
+    except SystemExit:
+        pass

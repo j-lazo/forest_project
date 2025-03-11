@@ -239,6 +239,7 @@ def build_list_dict_raster(df_annotations, list_data_points, path_data_files, fi
             
     return dict_data
 
+
 def rotate_points(points, angle):
     theta = np.radians(angle)
     """
@@ -364,7 +365,8 @@ def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, 
 # TF dataset raster-pickles
 def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, radius=1, 
                            selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above'],
-                           data_type='npy', num_repeats=1, augment=False):
+                           data_type='pkl', num_repeats=1, augment=False, 
+                           augmentation_functions=['None', 'rotate_90', 'rotate_180', 'rotate_270', 'flip_vertical', 'flip_horizontal']):
     
     RADIUS = radius
     def read_pickle_file(path):
@@ -398,7 +400,7 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
     def read_raster_and_augment(x, y):
         def _parse(x, y):
             x = read_raster_file(x)
-            x = augment_raster_files(x)
+            x = augment_raster_files(x, augmentation_functions)
             x = select_sub_rectangle(x)
             x = x.astype(np.float64) 
             y = np.array(y).astype(np.float64)
@@ -425,7 +427,7 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
     def read_piclke_and_augment(x, y):
         def _parse(x, y):
             x = read_pickle_file(x)
-            x = augment_raster_files(x)
+            x = augment_raster_files(x, augmentation_functions)
             x = select_sub_rectangle(x)
             x = x.astype(np.float64) 
             y = np.array(y).astype(np.float64)
@@ -445,7 +447,7 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
     list_files = list(annotations_dict.keys())
     path_files_data = list()
     list_all_variables = list()
-    data_cloud_points = list()
+
     if training_mode:
         random.shuffle(list_files)
     
@@ -459,16 +461,16 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
 
     
     dataset = tf.data.Dataset.from_tensor_slices((path_files_data, list_all_variables))
-    if data_type == 'npy' or data_type == 'pkl':
+    if data_type == 'pkl' or data_type == 'npy':
         if augment:
-            num_repeats = 4
+            num_repeats = len(augmentation_functions)
             dataset = dataset.repeat(num_repeats)
             dataset = dataset.map(read_piclke_and_augment)
         else:
             dataset = dataset.map(read_piclke)
     elif data_type == 'raster':
         if augment:
-            num_repeats = 4
+            num_repeats = len(augmentation_functions)
             dataset = dataset.repeat(num_repeats)
             dataset = dataset.map(read_raster_and_augment)
         else:
@@ -487,6 +489,7 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
     print(f'TF dataset with {int(len(path_files_data*num_repeats)/batch_size)} elements and {len(path_files_data)} images')
 
     return dataset
+
 
 
 def augment_raster_files(array, augmentation_functions=['None', 'rotate_90', 'rotate_180', 'rotate_270', 'flip_vertical', 'flip_horizontal']):

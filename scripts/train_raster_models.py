@@ -200,8 +200,6 @@ def main(_argv):
     name_model = FLAGS.name_model
     list_variables = FLAGS.list_variables
     data_type = FLAGS.data_type
-    file_format = FLAGS.file_format
-
 
     #  Hyperparameters 
     lr = FLAGS.learning_rate

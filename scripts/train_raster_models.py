@@ -193,18 +193,22 @@ def custome_train(model, train_dataset, learning_rate, max_epoxhs, val_dataset, 
 
 def main(_argv):
     tf.keras.backend.clear_session()
-    path_dataset = '/Users/lajo223/Desktop/current_prjojects/projects/forest_project/dataset/ASL_data/'
-    path_annotations = '/Users/lajo223/Desktop/current_prjojects/projects/forest_project/dataset/merged_data_cleaned.csv'
-    project_folder = '/Users/lajo223/Desktop/current_prjojects/projects/forest_project/'
-    name_model = 'pepito'
-    list_variables = ['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above']
+
+    path_dataset = FLAGS.path_dataset
+    path_annotations = FLAGS.path_annotations
+    project_folder = FLAGS.project_folder
+    name_model = FLAGS.name_model
+    list_variables = FLAGS.list_variables
+    data_type = FLAGS.data_type
+    file_format = FLAGS.file_format
+
+
     #  Hyperparameters 
-    lr = 0.001
-    epochs = 3
-    batch_size = 4
-    selection_radius = 3
-    data_type = 'npy'
-    augmentation_functions = ['all']
+    lr = FLAGS.learning_rate
+    epochs = FLAGS.max_epochs
+    batch_size = FLAGS.batch_size
+    selection_radius = FLAGS.radius
+    augmentation_functions = FLAGS.augmentation_functions
 
     if data_type == 'pkl':
         path_files = os.path.join(path_dataset, 'filtered_imgs')

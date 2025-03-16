@@ -273,9 +273,16 @@ def main(_argv):
     metrics=[tf.keras.metrics.MeanAbsoluteError()]
 
     # Compile the model 
-    model = cm.D_model(5, input_shape=(selection_radius*2+1,selection_radius*2+1,60))
-    print('Compiling model')
-    model.compile(optimizer=opt, loss=loss_fn, metrics=metrics)
+    if name_model == 'Simple_CNN':
+        model = cm.D_model(5, input_shape=(selection_radius*2+1,selection_radius*2+1,60))
+        print('Compiling simple model')
+        model.compile(optimizer=opt, loss=loss_fn, metrics=metrics)
+
+    elif name_model == 'Multi-sized_input_CNN':
+        model = cm.multi_input_model(5, input_shape=(selection_radius*2+1,selection_radius*2+1,60))
+        print('Compiling Multi-sized input model')
+        model.compile(optimizer=opt, loss=loss_fn, metrics=metrics)
+        model.summary()
 
     training_time = datetime.now()
     new_results_id = ''.join([name_model, 

@@ -75,7 +75,7 @@ def multi_input_model(num_outputs, input_shape=(9,9,60), center=5):
 
     x = tf.keras.layers.Dropout(0.05)(x)
     x = tf.keras.layers.Dense(128)(x)
-    x = tf.keras.layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dropout(0.05)(x)
     x = tf.keras.layers.Dense(64)(x)
     output_layer = tf.keras.layers.Dense(num_outputs)(x)
     return tf.keras.Model(inputs=input_image, outputs=output_layer, name=f'Multi_input_model')

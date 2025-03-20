@@ -21,6 +21,37 @@ def simple_regressor(num_outputs, input_shape=(9,9,60)):
     output_layer = tf.keras.layers.Dense(num_outputs)(x)
     return tf.keras.Model(inputs=input_image, outputs=output_layer, name=f'simple_model')
 
+def simple_fc_model(num_outputs, input_shape=(9,9,60), center=4):
+
+    input_image = tf.keras.Input(shape=input_shape, name="image_input")
+    x = input_image[:,center, center, :]
+    x = tf.keras.layers.Dense(256)(x)
+    x = tf.keras.layers.Dropout(0.05)(x)
+    x = tf.keras.layers.Dense(128)(x)
+    x = tf.keras.layers.Dense(64)(x)
+    output_layer = tf.keras.layers.Dense(num_outputs)(x)
+
+    return tf.keras.Model(inputs=input_image, outputs=output_layer, name=f'Simple_FC_model')
+
+
+
+def simple_conv_model(num_outputs, input_shape=(9,9,60)):
+
+    input_image = tf.keras.Input(shape=input_shape, name="image_input")
+    x = input_image
+    x = tf.keras.layers.Conv2D(128, (3, 3))(x)
+    x =  tf.keras.layers.ReLU()(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x =  tf.keras.layers.MaxPool2D(pool_size=(2, 2), strides=2)(x)
+    x = tf.keras.layers.Flatten()(x)
+    x = tf.keras.layers.Dropout(0.05)(x)
+    x = tf.keras.layers.Dense(256)(x)
+    x = tf.keras.layers.Dense(128)(x)
+    x = tf.keras.layers.Dense(32)(x)
+    output_layer = tf.keras.layers.Dense(num_outputs)(x)
+
+    return tf.keras.Model(inputs=input_image, outputs=output_layer, name=f'Simple_Conv_model')
+
 
 def D_model(num_outputs, input_shape=(9,9,60)):
     input_image = tf.keras.Input(shape=input_shape, name="image_input")
@@ -28,20 +59,45 @@ def D_model(num_outputs, input_shape=(9,9,60)):
     x = tf.keras.layers.Conv2D(64, (3, 3), padding="same")(x)
     x =  tf.keras.layers.ReLU()(x)
     x = tf.keras.layers.BatchNormalization()(x)
+
     x = tf.keras.layers.Conv2D(32, (3, 3), padding="same")(x)
     x =  tf.keras.layers.ReLU()(x)
     x = tf.keras.layers.BatchNormalization()(x)
+
     x =  tf.keras.layers.MaxPool2D(pool_size=(2, 2), strides=2)(x)
     x = tf.keras.layers.Dropout(0.05)(x)
     x = tf.keras.layers.Flatten()(x)
-    x = tf.keras.layers.Dense(254)(x)
+    x = tf.keras.layers.Dense(256)(x)
     x = tf.keras.layers.Dense(128)(x)
     x = tf.keras.layers.Dense(32)(x)
     output_layer = tf.keras.layers.Dense(num_outputs)(x)
     return tf.keras.Model(inputs=input_image, outputs=output_layer, name=f'D_simple_model')
 
 
-def multi_input_model(num_outputs, input_shape=(9,9,60), center=5):
+def simple_multi_input_model(num_outputs, input_shape=(9,9,60), center=4, radius_1=1):
+    input_image = tf.keras.Input(shape=input_shape, name="image_input")
+    center_pixels =  input_image[:,center, center, :]
+    sub_sample_1 =  input_image[:,center-radius_1:center+radius_1+1, center-radius_1:center+radius_1+1, :]
+
+    x = tf.keras.layers.Dense(256)(center_pixels)
+    #x = tf.keras.layers.Dense(128)(x)
+
+    x1 = tf.keras.layers.Conv2D(64, (3, 3), )(sub_sample_1)
+    x1 =  tf.keras.layers.ReLU()(x1)
+    x1 = tf.keras.layers.BatchNormalization()(x1)
+    x1 = tf.squeeze(x1, [1, 2])
+
+    concat = tf.keras.layers.Concatenate(axis=-1)([x, x1])
+
+    x = tf.keras.layers.Dropout(0.01)(concat)
+    x = tf.keras.layers.Dense(128)(x)
+    x = tf.keras.layers.Dropout(0.01)(x)
+    x = tf.keras.layers.Dense(64)(x)
+    output_layer = tf.keras.layers.Dense(num_outputs)(x)
+    return tf.keras.Model(inputs=input_image, outputs=output_layer, name=f'Simple_multi_input')
+
+
+def multi_input_model(num_outputs, input_shape=(9,9,60), center=4):
     input_image = tf.keras.Input(shape=input_shape, name="image_input")
     x = input_image
     radius_1 = 3
@@ -75,7 +131,7 @@ def multi_input_model(num_outputs, input_shape=(9,9,60), center=5):
 
     x = tf.keras.layers.Dropout(0.05)(x)
     x = tf.keras.layers.Dense(128)(x)
-    x = tf.keras.layers.Dropout(0.05)(x)
+    x = tf.keras.layers.Dropout(0.01)(x)
     x = tf.keras.layers.Dense(64)(x)
     output_layer = tf.keras.layers.Dense(num_outputs)(x)
     return tf.keras.Model(inputs=input_image, outputs=output_layer, name=f'Multi_input_model')

@@ -45,8 +45,9 @@ def simple_conv_model(num_outputs, input_shape=(9,9,60)):
     x =  tf.keras.layers.MaxPool2D(pool_size=(2, 2), strides=2)(x)
     x = tf.keras.layers.Flatten()(x)
     x = tf.keras.layers.Dropout(0.05)(x)
+    x = tf.keras.layers.Dense(512)(x)
+    x = tf.keras.layers.Dropout(0.05)(x)
     x = tf.keras.layers.Dense(256)(x)
-    x = tf.keras.layers.Dense(128)(x)
     x = tf.keras.layers.Dense(32)(x)
     output_layer = tf.keras.layers.Dense(num_outputs)(x)
 

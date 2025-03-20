@@ -280,6 +280,24 @@ def main(_argv):
         model.compile(optimizer=opt, loss=loss_fn, metrics=metrics)
         model.summary()
 
+    elif name_model == 'Simple_Conv':
+        model = cm.simple_conv_model(5, input_shape=(selection_radius*2+1,selection_radius*2+1,60))
+        print('Compiling One simple Conv. model')
+        model.compile(optimizer=opt, loss=loss_fn, metrics=metrics)
+        model.summary()
+
+    elif name_model == 'Simple_FC':
+        model = cm.simple_fc_model(5)
+        print('Compiling Simple Fully Conected model')
+        model.compile(optimizer=opt, loss=loss_fn, metrics=metrics)
+        model.summary()
+
+    elif name_model == 'Simple_multi_input':
+        model = cm.simple_multi_input_model(5)
+        print('Compiling Simple Multi-input  model')
+        model.compile(optimizer=opt, loss=loss_fn, metrics=metrics)
+        model.summary()
+
     training_time = datetime.now()
     new_results_id = ''.join([name_model, 
                             '_lr_',

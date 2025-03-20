@@ -39,7 +39,7 @@ def model_fit(ds_train, ds_val, model):
     return train_history
 
 
-def custome_train(model, train_dataset, learning_rate, max_epoxhs, val_dataset, new_results_id, results_directory, patience=10):
+def custome_train(model, train_dataset, learning_rate, max_epoxhs, val_dataset, new_results_id, results_directory, patience=5):
     
     @tf.function
     def train_step(inputs, labels):
@@ -100,7 +100,7 @@ def custome_train(model, train_dataset, learning_rate, max_epoxhs, val_dataset, 
     wait = 0
     best = 0
     num_training_samples = [i for i,_ in enumerate(train_dataset)][-1] + 1
-    checkpoint_filepath = os.path.join(results_directory, new_results_id + "_model_weights_flly_supervised.h5")
+    checkpoint_filepath = os.path.join(results_directory, new_results_id + "_model_.h5")
 
     # start training
 
@@ -168,15 +168,14 @@ def custome_train(model, train_dataset, learning_rate, max_epoxhs, val_dataset, 
         if loss_epoch_val < best:
             best = loss_epoch_val
             wait = 0
-            model.save_weights(checkpoint_filepath)
+            model.save(checkpoint_filepath)
 
         if wait >= patience:
             print(f'Early stopping triggered at epoch {epoch}: wait time > patience')
-            model.save_weights(checkpoint_filepath)
             break
     
-    fina_model_name = os.path.join(results_directory, new_results_id + "_final_model_weights_flly_supervised.h5")
-    model.save_weights(fina_model_name)
+    fina_model_name = os.path.join(results_directory, new_results_id + "_model_last_epoch.h5")
+    model.save(fina_model_name)
     print('Model saved at: ', checkpoint_filepath)    
 
     dict_history = {'train_loss': train_loss_hist,
@@ -264,9 +263,6 @@ def main(_argv):
     val_ds = dl.tf_dataset_asl_scanns(dict_val, radius=selection_radius, training_mode=True, data_type=data_type, augment=True)
     new_test_ds = dl.tf_dataset_asl_scanns(dict_test, radius=selection_radius, training_mode=False, batch_size=1, data_type=data_type, augment=False,
                                            analyze_dataset=True)
-
-    #train_ds = dl.tf_dataset_cloudpoints(dict_train, batch_size=batch_size, training_mode=True, selected_variables=list_variables, augmentation=True)
-    #val_ds = dl.tf_dataset_cloudpoints(dict_val, batch_size=batch_size, training_mode=True, selected_variables=list_variables, augmentation=True)    
 
     opt = tf.keras.optimizers.Adam(lr)
     loss_fn = tf.keras.losses.MeanSquaredError()
@@ -359,11 +355,21 @@ def main(_argv):
     real_vals_list = [list() for _ in list_variables]
     predictions_list = [list() for _ in list_variables]
 
+    list_all_models = os.listdir(results_directory)
+    list_all_models = [f for f in list_all_models if f.endswith('.h5')]
+    
+    if len(list_all_models) > 1:
+        list_all_models  = [m for m in list_all_models if '_model_last_epoch' not in m]
+
+    best_model_name = list_all_models.pop()
+    path_best_model = os.path.join(results_directory, best_model_name)
+    model_prediction =  tf.keras.models.load_model(path_best_model)
+
     for x, file_path in tqdm.tqdm(new_test_ds, desc='Analyzing test dataset'):
         name_file = file_path.numpy()[0].decode("utf-8").split('/')[-1].split('.')[0]
         cloudpoint_batch = x[0]
         real_vals_batch = x[1].numpy()
-        predictions = model.predict(cloudpoint_batch, verbose=0)
+        predictions = model_prediction.predict(cloudpoint_batch, verbose=0)
         name_files.append(name_file)
         for j, real_val, in enumerate(real_vals_batch.tolist()[0]):
             real_vals_list[j].append(float(real_val))
@@ -399,7 +405,6 @@ if __name__ == '__main__':
 
 
     flags.DEFINE_string('type_training', '', 'fit_training or custom_training')
-    flags.DEFINE_string('results_dir', os.path.join(os.getcwd(), 'results'), 'directory to save the results')
 
     try:
         app.run(main)

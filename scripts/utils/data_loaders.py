@@ -278,6 +278,9 @@ def flip_points(points, flip_type="horizontal"):
     return np.dot(points, flip_matrix.T)  # Apply transformation
 
 
+def read_pickle_file(path):
+    x = np.load(path, allow_pickle=True)
+    return x
 
 def augment_cloudpoints(points, augmentation_functions=['None', 'rotate_90', 'rotate_180', 
                         'rotate_270', 'flip_vertical', 'flip_horizontal'], choice = None):
@@ -362,6 +365,7 @@ def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, 
     return dataset
 
 
+
 # TF dataset raster-pickles
 def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, radius=1, 
                            selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above'],
@@ -369,10 +373,6 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
                            augmentation_functions=['None', 'rotate_90', 'rotate_180', 'rotate_270', 'flip_vertical', 'flip_horizontal']):
     
     RADIUS = radius
-    def read_pickle_file(path):
-        path = path.decode()
-        x = np.load(path, allow_pickle=True)
-        return x
     
     def read_raster_file(path):
         path = path.decode()
@@ -413,7 +413,7 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
 
     def read_piclke(x, y):
         def _parse(x, y):
-            x = read_pickle_file(x)
+            x = read_pickle_file(x.decode())
             x = select_sub_rectangle(x)
             x = x.astype(np.float64) 
             y = np.array(y).astype(np.float64)
@@ -426,7 +426,7 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
     
     def read_piclke_and_augment(x, y):
         def _parse(x, y):
-            x = read_pickle_file(x)
+            x = read_pickle_file(x.decode())
             x = augment_raster_files(x, augmentation_functions)
             x = select_sub_rectangle(x)
             x = x.astype(np.float64) 
@@ -487,6 +487,82 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
 
     dataset = dataset.prefetch(1)
     print(f'TF dataset with {int(len(path_files_data*num_repeats)/batch_size)} elements and {len(path_files_data)} images')
+
+    return dataset
+
+
+# T-F Dataset mixed data, raster and cloudpoints 
+def tf_dataset_raster_and_cloudpoints(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, num_points=1024, 
+                           selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above'], 
+                           augmentation_raster=False, augmentation_cloudpoints=False, radius_raster=1, radius_cloudpoints=20,
+                           augmentation_functions_raster=['None', 'rotate_90', 'rotate_180', 'rotate_270', 'flip_vertical', 'flip_horizontal'], 
+                           augmentation_functions_cloudpoints=['None', 'rotate_90', 'rotate_180', 'rotate_270', 'flip_vertical', 'flip_horizontal']):
+
+
+    def select_sub_rectangle(x, center=4, radius=radius_raster):
+        return x[center-radius:center+radius+1, center-radius:center+radius+1, :]
+
+    
+    def read_files(x, y, z):
+        def _parse(x, y, z):
+            x = read_pickle_file(x.decode())
+            x = select_sub_rectangle(x)
+            if augmentation_raster:
+                x = augment_raster_files(x, augmentation_functions_raster)
+            y = get_cloud_points_json(y.decode(), max_num_points=num_points, radius=radius_cloudpoints)
+            if augmentation_cloudpoints:
+                y = augment_cloudpoints(y)
+            z = np.array(z).astype(np.float64)
+            return x, y, z
+
+        x, y, z = tf.numpy_function(_parse, [x, y, z], [tf.float64, tf.float64, tf.float64])
+        x.set_shape([(radius_raster*2)+1, (radius_raster*2)+1, 60])
+        z.set_shape([len(selected_variables)])
+        return x, y, z
+
+    def configure_for_performance(dataset, batch_size):
+        dataset = dataset.shuffle(buffer_size=10)
+        dataset = dataset.batch(batch_size, drop_remainder=True)        
+        dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        return dataset
+    
+    list_files = list(annotations_dict.keys())
+    path_cloudpoint_files = list()
+    path_raster_files = list()
+    list_all_variables = list()
+
+    if augmentation_raster or augmentation_cloudpoints:
+        max_length_augment_functions = np.max(len(augmentation_functions_raster), len(augmentation_functions_cloudpoints))
+        list_files = list_files*len(max_length_augment_functions)
+    
+    if training_mode:
+        random.shuffle(list_files)
+
+    for data_id in list_files:
+
+        path_cloudpoint_files.append(annotations_dict.get(data_id).get('path_file_cloudpoint'))
+        path_raster_files.append(annotations_dict.get(data_id).get('path_file_raster'))
+
+        data_point_vars = list()
+        for j, variable_name in enumerate(selected_variables):
+            data_point_vars.append(annotations_dict.get(data_id).get(variable_name))
+        list_all_variables.append(data_point_vars)
+
+    dataset = tf.data.Dataset.from_tensor_slices((path_raster_files, path_cloudpoint_files, list_all_variables))
+    dataset = dataset.map(read_files)
+
+    
+    if training_mode:
+        dataset = configure_for_performance(dataset, batch_size=batch_size)
+    else:
+        dataset = dataset.batch(batch_size,  drop_remainder=True)
+
+    if analyze_dataset:
+        filenames_ds = tf.data.Dataset.from_tensor_slices(path_raster_files, path_cloudpoint_files)
+        dataset = tf.data.Dataset.zip(dataset, filenames_ds)
+
+    dataset = dataset.prefetch(1)
+    print(f'TF dataset with {len(path_raster_files)} elements')
 
     return dataset
 

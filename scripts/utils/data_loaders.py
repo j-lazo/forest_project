@@ -240,6 +240,38 @@ def build_list_dict_raster(df_annotations, list_data_points, path_data_files, fi
     return dict_data
 
 
+# build dictionary for mixed input data, raster and pointclouds
+def build_list_dict_mixed_input_data(df_annotations, list_data_points, path_raster_data, path_cloud_points_data, file_format_raster='.npy',
+                                     file_format_cloudpoints = '.json', selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above']):
+    
+    dict_data = {}
+    mask = df_annotations['Description'].isin(list_data_points)
+    new_df = df_annotations[mask]
+
+    temp_dict_variables = {x:None for x in selected_variables}
+    list_names = new_df['Description'].tolist()
+    
+    for variable_name in selected_variables:
+        temp_dict_variables[variable_name] = new_df[variable_name].tolist()
+    for idx, data_name in enumerate(tqdm.tqdm(list_names, desc='Buidling dictionary')):
+        
+        path_raster_data_file = os.path.join(path_raster_data, str(data_name) + file_format_raster)
+        path_cloud_points_file = os.path.join(path_cloud_points_data, str(data_name) + file_format_cloudpoints)
+        if os.path.isfile(path_raster_data_file) and os.path.isfile(path_cloud_points_file):
+            try: 
+                dict_data_point = {'id_name': list_names[idx],
+                                  'path_file_raster': path_raster_data_file,
+                                  'path_file_cloudpoint': path_cloud_points_file}
+
+                for variable_name in selected_variables:
+                    dict_data_point[variable_name] = temp_dict_variables[variable_name][idx]
+                dict_data[data_name] = dict_data_point
+            except:
+                print(f'{path_raster_data_file} broken')
+            
+    return dict_data
+
+
 def rotate_points(points, angle):
     theta = np.radians(angle)
     """

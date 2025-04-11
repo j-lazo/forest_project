@@ -399,7 +399,7 @@ def tf_dataset_cloudpoints(annotations_dict, batch_size=8, training_mode=False, 
 
 
 # TF dataset raster-pickles
-def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, radius=1, 
+def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, radius=1, num_channels=60,
                            selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above'],
                            data_type='pkl', num_repeats=1, augment=False, 
                            augmentation_functions=['None', 'rotate_90', 'rotate_180', 'rotate_270', 'flip_vertical', 'flip_horizontal']):
@@ -425,7 +425,7 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
             return x, y
         
         x, y = tf.numpy_function(_parse, [x, y], [tf.float64, tf.float64])
-        x.set_shape([(RADIUS*2)+1, (RADIUS*2)+1, 60])
+        x.set_shape([(RADIUS*2)+1, (RADIUS*2)+1, num_channels])
         y.set_shape([len(selected_variables)])
         return x, y
         
@@ -439,7 +439,7 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
             return x, y
 
         x, y = tf.numpy_function(_parse, [x, y], [tf.float64, tf.float64])
-        x.set_shape([(RADIUS*2)+1, (RADIUS*2)+1, 60])
+        x.set_shape([(RADIUS*2)+1, (RADIUS*2)+1, num_channels])
         y.set_shape([len(selected_variables)])
         return x, y
 
@@ -452,7 +452,7 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
             return x, y
         
         x, y = tf.numpy_function(_parse, [x, y], [tf.float64, tf.float64])
-        x.set_shape([(RADIUS*2)+1, (RADIUS*2)+1, 60])
+        x.set_shape([(RADIUS*2)+1, (RADIUS*2)+1, num_channels])
         y.set_shape([len(selected_variables)])
         return x, y
     
@@ -466,7 +466,7 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
             return x, y
         
         x, y = tf.numpy_function(_parse, [x, y], [tf.float64, tf.float64])
-        x.set_shape([(RADIUS*2)+1, (RADIUS*2)+1, 60])
+        x.set_shape([(RADIUS*2)+1, (RADIUS*2)+1, num_channels])
         y.set_shape([len(selected_variables)])
         return x, y
     
@@ -526,7 +526,7 @@ def tf_dataset_asl_scanns(annotations_dict, batch_size=8, training_mode=False, a
 # T-F Dataset mixed data, raster and cloudpoints 
 def tf_dataset_raster_and_cloudpoints(annotations_dict, batch_size=8, training_mode=False, analyze_dataset=False, num_points=1024, 
                            selected_variables=['Volume', 'Hgv', 'Dgv', 'Basal_area', 'Biomassa_above'], 
-                           augmentation_raster=False, augmentation_cloudpoints=False, radius_raster=1, radius_cloudpoints=20,
+                           augmentation_raster=False, augmentation_cloudpoints=False, radius_raster=1, num_channels=60, radius_cloudpoints=20,
                            augmentation_functions_raster=['None', 'rotate_90', 'rotate_180', 'rotate_270', 'flip_vertical', 'flip_horizontal'], 
                            augmentation_functions_cloudpoints=['None', 'rotate_90', 'rotate_180', 'rotate_270', 'flip_vertical', 'flip_horizontal']):
 
@@ -548,7 +548,7 @@ def tf_dataset_raster_and_cloudpoints(annotations_dict, batch_size=8, training_m
             return x, y, z
 
         x, y, z = tf.numpy_function(_parse, [x, y, z], [tf.float64, tf.float64, tf.float64])
-        x.set_shape([(radius_raster*2)+1, (radius_raster*2)+1, 60])
+        x.set_shape([(radius_raster*2)+1, (radius_raster*2)+1, num_channels])
         z.set_shape([len(selected_variables)])
         return x, y, z
 

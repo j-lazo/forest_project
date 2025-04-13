@@ -295,7 +295,7 @@ def main(_argv):
         model.summary()
 
     training_time = datetime.now()
-    new_results_id = ''.join([name_model, 
+    new_results_id = ''.join([name_model, '_sentinel2_data_',
                             '_lr_',
                             str(lr),
                             '_bs_',

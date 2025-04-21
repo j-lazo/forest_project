@@ -67,4 +67,6 @@ def build_pointnet(num_outputs, num_points=1024):
         #output_layer = tf.keras.layers.Dense(1, activation='tanh')(x)
     outputs = tf.keras.layers.Dense(num_outputs, kernel_initializer='normal')(x)
     return Model(inputs=inputs, outputs=outputs, name="pointnet")
+
+
      

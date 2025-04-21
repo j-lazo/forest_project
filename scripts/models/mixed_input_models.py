@@ -20,7 +20,7 @@ def mixed_input_model(num_outputs, input_shape_iamge=(9,9,60), num_points=1024):
     
     x_raster = tf.keras.layers.Conv2D(64, (3, 3), padding="same")(input_raster)
     x_raster =  tf.keras.layers.ReLU()(x_raster)
-    x_raster = tf.keras.layers.BatchNormalization()(x_raster)s
+    x_raster = tf.keras.layers.BatchNormalization()(x_raster)
     x_raster = tf.keras.layers.Conv2D(32, (3, 3), padding="same")(x_raster)
     x_raster =  tf.keras.layers.ReLU()(x_raster)
     x_raster = tf.keras.layers.BatchNormalization()(x_raster)
@@ -30,7 +30,7 @@ def mixed_input_model(num_outputs, input_shape_iamge=(9,9,60), num_points=1024):
 
 
     concat = tf.keras.layers.Concatenate(axis=-1)([x_cloudpoints, x_raster])
-    
+
     x = tf.keras.layers.Dense(512)(concat)
     x = tf.keras.layers.Dense(256)(concat)
     x = tf.keras.layers.Dense(128)(x)

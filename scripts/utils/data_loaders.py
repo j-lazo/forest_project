@@ -542,6 +542,7 @@ def tf_dataset_raster_and_cloudpoints(annotations_dict, batch_size=8, training_m
             if augmentation_raster:
                 x = augment_raster_files(x, augmentation_functions_raster)
             y = get_cloud_points_json(y.decode(), max_num_points=num_points, radius=radius_cloudpoints)
+            y = np.transpose(y)
             if augmentation_cloudpoints:
                 y = augment_cloudpoints(y)
             z = np.array(z).astype(np.float64)
@@ -549,6 +550,7 @@ def tf_dataset_raster_and_cloudpoints(annotations_dict, batch_size=8, training_m
 
         x, y, z = tf.numpy_function(_parse, [x, y, z], [tf.float64, tf.float64, tf.float64])
         x.set_shape([(radius_raster*2)+1, (radius_raster*2)+1, num_channels])
+        #y.set_shape([num_points, 3])
         z.set_shape([len(selected_variables)])
         return x, y, z
 

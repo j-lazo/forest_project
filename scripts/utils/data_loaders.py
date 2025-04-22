@@ -566,8 +566,8 @@ def tf_dataset_raster_and_cloudpoints(annotations_dict, batch_size=8, training_m
     list_all_variables = list()
 
     if augmentation_raster or augmentation_cloudpoints:
-        max_length_augment_functions = np.max(len(augmentation_functions_raster), len(augmentation_functions_cloudpoints))
-        list_files = list_files*len(max_length_augment_functions)
+        max_length_augment_functions = np.max([len(augmentation_functions_raster), len(augmentation_functions_cloudpoints)])
+        list_files = list_files*max_length_augment_functions
     
     if training_mode:
         random.shuffle(list_files)
@@ -592,13 +592,15 @@ def tf_dataset_raster_and_cloudpoints(annotations_dict, batch_size=8, training_m
         dataset = dataset.batch(batch_size,  drop_remainder=True)
 
     if analyze_dataset:
-        filenames_ds = tf.data.Dataset.from_tensor_slices(path_raster_files, path_cloudpoint_files)
-        dataset = tf.data.Dataset.zip(dataset, filenames_ds)
+        filenames = tf.data.Dataset.from_tensor_slices(list_files) 
+        dataset = tf.data.Dataset.zip(dataset, filenames)
 
     dataset = dataset.prefetch(1)
+    print(f'TF dataset with {int(len(list_files)/batch_size)} elements and {len(path_raster_files)} images')
+
     print(f'TF dataset with {len(path_raster_files)} elements')
 
-    return dataset
+    return dataset, int(len(list_files)/batch_size)
 
 
 

@@ -37,4 +37,4 @@ def mixed_input_model(num_outputs, input_shape_iamge=(9,9,60), num_points=1024):
     x = tf.keras.layers.Dense(32)(x)
     output_layer = tf.keras.layers.Dense(num_outputs)(x)
     
-    return tf.keras.Model(inputs=[input_raster, inputs_points], outputs=output_layer, name=f'D_simple_model')
+    return tf.keras.Model(inputs=[input_raster, inputs_points], outputs=output_layer, name=f'Mixed_input_simple_model')

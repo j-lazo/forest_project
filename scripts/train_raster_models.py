@@ -270,30 +270,30 @@ def main(_argv):
 
     # Compile the model 
     if name_model == 'Simple_CNN':
-        model = cm.D_model(5, input_shape=(selection_radius*2+1,selection_radius*2+1,60))
+        model = cm.D_model(len(list_variables), input_shape=(selection_radius*2+1,selection_radius*2+1,60))
         print('Compiling simple model')
         model.compile(optimizer=opt, loss=loss_fn, metrics=metrics)
 
     elif name_model == 'Multi-sized_input_CNN':
-        model = cm.multi_input_model(5, input_shape=(selection_radius*2+1,selection_radius*2+1,60))
+        model = cm.multi_input_model(len(list_variables), input_shape=(selection_radius*2+1,selection_radius*2+1,60))
         print('Compiling Multi-sized input model')
         model.compile(optimizer=opt, loss=loss_fn, metrics=metrics)
         model.summary()
 
     elif name_model == 'Simple_Conv':
-        model = cm.simple_conv_model(5, input_shape=(selection_radius*2+1,selection_radius*2+1,60))
+        model = cm.simple_conv_model(len(list_variables), input_shape=(selection_radius*2+1,selection_radius*2+1,60))
         print('Compiling One simple Conv. model')
         model.compile(optimizer=opt, loss=loss_fn, metrics=metrics)
         model.summary()
 
     elif name_model == 'Simple_FC':
-        model = cm.simple_fc_model(5)
+        model = cm.simple_fc_model(len(list_variables))
         print('Compiling Simple Fully Conected model')
         model.compile(optimizer=opt, loss=loss_fn, metrics=metrics)
         model.summary()
 
     elif name_model == 'Simple_multi_input':
-        model = cm.simple_multi_input_model(5)
+        model = cm.simple_multi_input_model(len(list_variables))
         print('Compiling Simple Multi-input  model')
         model.compile(optimizer=opt, loss=loss_fn, metrics=metrics)
         model.summary()

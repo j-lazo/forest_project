@@ -372,7 +372,15 @@ def main(_argv):
 
     best_model_name = list_all_models.pop()
     path_best_model = os.path.join(results_directory, best_model_name)
-    model_prediction =  tf.keras.models.load_model(path_best_model)
+
+    if name_model == 'Simple_mixed_model':
+
+        model_prediction = mi.mixed_input_model(len(list_variables), 
+                                        input_shape_iamge=(selection_radius_raster*2+1,selection_radius_raster*2+1,num_channels), 
+                                        num_points=num_points)
+        print('Prediction Model Loaded')
+
+    model_prediction.load_weights(path_best_model) #tf.keras.models.load_model(path_best_model)
 
     for x, file_path in tqdm.tqdm(new_test_ds, desc='Analyzing test dataset'):
         name_file = file_path.numpy()[0].decode("utf-8").split('/')[-1].split('.')[0]

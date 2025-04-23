@@ -383,10 +383,11 @@ def main(_argv):
     model_prediction.load_weights(path_best_model) #tf.keras.models.load_model(path_best_model)
 
     for x, file_path in tqdm.tqdm(new_test_ds, desc='Analyzing test dataset'):
-        name_file = file_path.numpy()[0].decode("utf-8").split('/')[-1].split('.')[0]
-        cloudpoint_batch = x[0]
-        real_vals_batch = x[1].numpy()
-        predictions = model_prediction.predict(cloudpoint_batch, verbose=0)
+        name_file = str(file_path.numpy())#.decode("utf-8")#.split('/')[-1].split('.')[0]
+        raster_batch = x[0]
+        cloudpoint_batch = x[1]
+        real_vals_batch = x[2].numpy()
+        predictions = model_prediction.predict([raster_batch, cloudpoint_batch], verbose=0)
         name_files.append(name_file)
         for j, real_val, in enumerate(real_vals_batch.tolist()[0]):
             real_vals_list[j].append(float(real_val))
@@ -423,8 +424,8 @@ if __name__ == '__main__':
     flags.DEFINE_integer('max_num_points', 1024, 'number of points samples')
     flags.DEFINE_integer('batch_size', 8, 'batch size')
     flags.DEFINE_integer('num_channels', 60, 'number of channels to use')
-    flags.DEFINE_list('augmentation_functions_raster', ['all'], 'agumentation functions used')
-    flags.DEFINE_list('augmentation_functions_cloudpoints', ['all'], 'agumentation functions used')
+    flags.DEFINE_list('augmentation_functions_raster', ['None'], 'agumentation functions used')
+    flags.DEFINE_list('augmentation_functions_cloudpoints', ['None'], 'agumentation functions used')
 
 
     flags.DEFINE_string('type_training', '', 'fit_training or custom_training')

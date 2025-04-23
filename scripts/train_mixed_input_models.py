@@ -424,8 +424,8 @@ if __name__ == '__main__':
     flags.DEFINE_integer('max_num_points', 1024, 'number of points samples')
     flags.DEFINE_integer('batch_size', 8, 'batch size')
     flags.DEFINE_integer('num_channels', 60, 'number of channels to use')
-    flags.DEFINE_list('augmentation_functions_raster', ['None'], 'agumentation functions used')
-    flags.DEFINE_list('augmentation_functions_cloudpoints', ['None'], 'agumentation functions used')
+    flags.DEFINE_list('augmentation_functions_raster', ['all'], 'agumentation functions used')
+    flags.DEFINE_list('augmentation_functions_cloudpoints', ['all'], 'agumentation functions used')
 
 
     flags.DEFINE_string('type_training', '', 'fit_training or custom_training')

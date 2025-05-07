@@ -128,8 +128,7 @@ def build_pointnet2_classifier(num_classes, num_points=1024):
     x = mlp_block(x, [512, 256], dropout_rate=0.5, name='fc')
     
     # Output layer
-    outputs = layers.Dense(num_classes, activation='softmax', name='outputs')(x)
-    
+    outputs = tf.keras.layers.Dense(num_classes, kernel_initializer='normal')(x)
     return Model(inputs=input_points, outputs=outputs, name='pointnet2_cls')
 
 

@@ -24,6 +24,7 @@ from tensorflow.python.client import device_lib
 from datetime import datetime
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, CSVLogger, TensorBoard
 from utils import metrics as metrics
+from models import PointNetV2 as pointnetv2
 
 
 def fit_model(model, train_ds, learning_rate, max_epoxhs, val_ds, new_results_id, results_directory):
@@ -252,8 +253,13 @@ def main(_argv):
     metrics=[tf.keras.metrics.MeanAbsoluteError()]
 
     # Compile the model 
-    model = pointnet.build_pointnet(len(list_variables), num_points=num_points)
+    if name_model == 'PointNet':
+        model = pointnet.build_pointnet(len(list_variables), num_points=num_points)
+    elif name_model == 'PointNet2':
+        model = pointnetv2.build_pointnet2_classifier(len(list_variables), num_points=num_points)
+        
     print('Compiling model')
+    
     model.compile(optimizer=opt, loss=loss_fn, metrics=metrics)
 
     training_time = datetime.now()
